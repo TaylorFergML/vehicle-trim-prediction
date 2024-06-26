@@ -200,7 +200,7 @@ trim <- rename(count(trim_train, Vehicle_Trim), Freq = n)
 
 # Cleaning up vehicle trim names
 
-trim_train$Vehicle_Trim <- gsub(".*75th.*", "75th Anniversary Edition",trim_train$Vehicle_Trim, ignore.case=TRUE)
+trim_train$Vehicle_Trim <- gsub(".*75th.*", "75th Anniversary",trim_train$Vehicle_Trim, ignore.case=TRUE)
 trim_train$Vehicle_Trim <- gsub(".*Limited.*", "Limited",trim_train$Vehicle_Trim, ignore.case=TRUE)
 trim_train$Vehicle_Trim <- gsub(".*premium.*luxury.*", "Premium Luxury",trim_train$Vehicle_Trim, ignore.case=TRUE)
 trim_train$Vehicle_Trim <- gsub("^luxury.*", "Luxury",trim_train$Vehicle_Trim, ignore.case=TRUE)
@@ -254,12 +254,12 @@ trims <- c(levels(trim_train$Vehicle_Trim))
 
 # Created a binary variable for each trim listed in remaining string variables.
 
-#*#*FIX!!!!!
-
 library(stringr)
 for(i in trims){
-  trim_train[i] <- +str_detect(apply(trim_train, 1, paste0, collapse = " "), trims[which(trims == i)])
+  trim_train[i] <- +str_detect(apply(trim_train[,1:18], 1, paste0, collapse = " "), trims[which(trims == i)])
 }
+
+
 
 featCorpus <- corpus(trim_train$VehFeats)
 
