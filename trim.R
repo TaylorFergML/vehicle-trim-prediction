@@ -240,7 +240,7 @@ trim_train$VehHistory <- sub("\\ Owner.*", "", trim_train$VehHistory)
 
 trim_train$VehHistory <- as.numeric(trim_train$VehHistory)
 
-# Features
+# Features and Seller Notes
 
 install.packages("quanteda")
 library(quanteda)
@@ -249,8 +249,20 @@ install.packages("quanteda.textstats")
 library(quanteda.textstats)
 unique(trim_train$VehFeats)
 
+# combining features and seller notes
+
+trim_train$VehSellerNotes[is.na(trim_train$VehSellerNotes)] <- " "
+trim_train$VehFeats[is.na(trim_train$VehFeats)] <- " "
+
+trim_train$text <- str_c(trim_train$VehFeats, " ", trim_train$VehSellerNotes)
+
 # Create a vector of trims
-trims <- c(levels(trim_train$Vehicle_Trim))
+
+trims <- c(tolower(levels(trim_train$Vehicle_Trim)))
+
+#
+trim_train$VehFeats <- tolower(trim_train$VehFeats)
+trim_train$VehSellerNotes <- tolower(trim_train$VehSellerNotes)
 
 # Created a binary variable for each trim listed in remaining string variables.
 
@@ -259,9 +271,7 @@ for(i in trims){
   trim_train[i] <- +str_detect(apply(trim_train[,1:18], 1, paste0, collapse = " "), trims[which(trims == i)])
 }
 
-
-
-featCorpus <- corpus(trim_train$VehFeats)
+featCorpus <- corpus(trim_train$text)
 
 docvars(featCorpus, "Textno") <-
   sprintf("%02d", 1:ndoc(featCorpus))
@@ -292,7 +302,7 @@ featdfm <-
 groupfeatdfm <- dfm_group(featdfm, groups = trim_train$Vehicle_Trim)
 head(groupfeatdfm)
 
-groupfeatkey <- textstat_keyness(groupfeatdfm, target = 3)
+groupfeatkey <- textstat_keyness(groupfeatdfm)
 
 print(groupfeatkey)
 
@@ -301,43 +311,3 @@ head(dfm_sort(groupfeatdfm, decreasing = TRUE, margin = "both") )
 topfeatures(groupfeatdfm, n=200)
 
 trim_feat_freq <- textstat_frequency(featdfm, group = trim_train$Vehicle_Trim)
-
-# Seller Notes
-
-trimCorpus <- corpus(trim_train$VehSellerNotes)
-
-docvars(trimCorpus, "Textno") <-
-  sprintf("%02d", 1:ndoc(trimCorpus))
-
-token <-
-  tokens(
-    trimCorpus,
-    split_hyphens = TRUE,
-    remove_punct = TRUE,
-    remove_symbols = TRUE,
-    include_docvars = TRUE
-  )
-
-token <- tokens_remove(token, stopwords())
-
-trimdfm <- dfm(token,
-             tolower = TRUE)
-
-trimdfm <- dfm_remove(trimdfm, stopwords("english"))
-
-trimdfm <-
-  dfm_trim(
-    trimdfm,
-    min_docfreq = 0.0,
-    max_docfreq = 0.50,
-    docfreq_type = "prop"
-  ) 
-groupdfm <- dfm_group(trimdfm, groups = trim_train$Vehicle_Trim)
-
-groupkey <- textstat_keyness(groupdfm)
-
-head(dfm_sort(groupdfm, decreasing = TRUE, margin = "both") ) 
-
-topfeatures(groupdfm, n=200)
-
-trim_freq <- textstat_frequency(trimdfm, group = trim_train$Vehicle_Trim)
