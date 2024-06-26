@@ -50,20 +50,21 @@ abline(lm(trim_train$Dealer_Listing_Price ~ trim_train$SellerRating))
 plot(trim_train$SellerRevCnt, trim_train$Dealer_Listing_Price)
 abline(lm(trim_train$Dealer_Listing_Price ~ trim_train$SellerRevCnt))
 
-# There does appear to be a slight relationship between Seller Rating and Seller review counts
+# There does appear to be a slight relationship between Seller Rating and Seller review counts with listing price
 
 # Exploring vehicle features
 
 #Vehicle Exterior Colors
 library(dplyr)
-int <- rename(count(trim_train, VehColorExt), Freq = n)
-print(int, n=269)
+ext_color <- rename(count(trim_train, VehColorExt), Freq = n)
+print(ext_color, n=269)
 
 unique(trim_train$VehColorExt)
 
 split <- split(trim_train$Vehicle_Trim, trim_train$VehColorExt)
 print(split)
 
+# sorting colors into official color names when possible. Grouping the rest by basic color or other for uncommon colors
 trim_train$VehColorExt <-  tolower(trim_train$VehColorExt)
 
 trim_train$VehColorExt <- gsub(".*Red.*line.*","Redline",trim_train$VehColorExt, ignore.case=TRUE)
@@ -111,11 +112,15 @@ trim_train$VehColorExt <- gsub(".*bown.*", "Brown",trim_train$VehColorExt, ignor
 trim_train$VehColorExt <- gsub(".*silver.*", "Silver",trim_train$VehColorExt, ignore.case=FALSE)
 trim_train$VehColorExt <- gsub("^[a-z].*", "Other",trim_train$VehColorExt, ignore.case=FALSE)
 
+trim_train$VehColorExt <- as.factor(trim_train$VehColorExt)
+
 #Vehicle Interior Colors
 
 int_color <-  split(trim_train$VehColorInt, trim_train$Vehicle_Trim)
 
 unique(trim_train$VehColorInt)
+
+# sorting interior colors into a few unique colors to models, then categorizing them by style or basic color
 
 trim_train$VehColorInt <-  tolower(trim_train$VehColorInt)
 
@@ -134,20 +139,28 @@ trim_train$VehColorInt <- gsub(".*brown.*", "Brown",trim_train$VehColorInt, igno
 trim_train$VehColorInt <- gsub(".*tan.*", "Brown",trim_train$VehColorInt, ignore.case=FALSE)
 trim_train$VehColorInt <- gsub("^[a-z].*", "Other",trim_train$VehColorInt, ignore.case=FALSE)
 
+trim_train$VehColorInt <- as.factor(trim_train$VehColorInt)
+
 # Vehicle drive type
 
 drive <- rename(count(trim_train, VehDriveTrain), Freq = n)
 
 unique(trim_train$VehDriveTrain)
 
+# Sorted drive type to simply Fwd or 4x4
+
 trim_train$VehDriveTrain <- gsub(".*2.*|.*front.*|.*fwd.*", "Fwd",trim_train$VehDriveTrain, ignore.case=TRUE)
 trim_train$VehDriveTrain <- gsub(".*4.*|.*a.*|.*four.*", "4x4",trim_train$VehDriveTrain, ignore.case=TRUE)
+
+trim_train$VehDriveTrain <- as.factor(trim_train$VehDriveTrain)
 
 # Vehicle engine
 
 Engine <- rename(count(trim_train, VehEngine), Freq = n)
 
 unique(trim_train$VehEngine)
+
+# Sorted engine by size when possible, otherwise type
 
 trim_train$VehEngine <- gsub(".*3\\.6.*", "3.6L",trim_train$VehEngine, ignore.case=TRUE)
 trim_train$VehEngine <- gsub(".*3\\.0.*", "3.0L",trim_train$VehEngine, ignore.case=TRUE)
@@ -159,6 +172,8 @@ trim_train$VehEngine <- gsub(".*6.*c.*", "V6",trim_train$VehEngine, ignore.case=
 trim_train$VehEngine <- gsub(".*v.*6.*", "V6",trim_train$VehEngine, ignore.case=TRUE)
 trim_train$VehEngine <- gsub(".*hemi.*", "V8",trim_train$VehEngine, ignore.case=TRUE)
 trim_train$VehEngine <- gsub(".*^6$.*", "V6",trim_train$VehEngine, ignore.case=TRUE)
+
+trim_train$VehEngine <- as.factor(trim_train$VehEngine)
 
 # Vehicle Fuel
 
@@ -183,6 +198,8 @@ unique(trim_train$VehYear)
 unique(trim_train$Vehicle_Trim)
 trim <- rename(count(trim_train, Vehicle_Trim), Freq = n)
 
+# Cleaning up vehicle trim names
+
 trim_train$Vehicle_Trim <- gsub(".*75th.*", "75th Anniversary Edition",trim_train$Vehicle_Trim, ignore.case=TRUE)
 trim_train$Vehicle_Trim <- gsub(".*Limited.*", "Limited",trim_train$Vehicle_Trim, ignore.case=TRUE)
 trim_train$Vehicle_Trim <- gsub(".*premium.*luxury.*", "Premium Luxury",trim_train$Vehicle_Trim, ignore.case=TRUE)
@@ -190,8 +207,14 @@ trim_train$Vehicle_Trim <- gsub("^luxury.*", "Luxury",trim_train$Vehicle_Trim, i
 trim_train$Vehicle_Trim <- gsub(".*platinum.*", "Platinum",trim_train$Vehicle_Trim, ignore.case=TRUE)
 trim_train$Vehicle_Trim <- gsub(".*laredo.*", "Laredo",trim_train$Vehicle_Trim, ignore.case=TRUE)
 
+# Investigating FWD trim. It is likely a Base Cadillac but decided to look further after text mining 
 basetrim <- trim_train %>% 
   filter(Vehicle_Trim == "FWD")
+## Came back and changed to Base
+trim_train$Vehicle_Trim <- gsub(".*FWD.*", "Base",trim_train$Vehicle_Trim, ignore.case=TRUE)
+
+# Removed records with missing trim since they wouldn't provide any predictive power
+
 missing <- !complete.cases(trim_train$Vehicle_Trim)
 trim_train <- trim_train[!is.na(trim_train$Vehicle_Trim), ]
 
@@ -205,12 +228,17 @@ summary(trim_train$Vehicle_Trim)
 
 unique(trim_train$VehHistory)
 
+# Created logical variables for different categories listed in history
+
 trim_train$Accidents <- grepl("Accident", trim_train$VehHistory)
 trim_train$TitleIssue <- grepl("Title", trim_train$VehHistory)
 trim_train$NonPersonalUse <- grepl("Non-Personal", trim_train$VehHistory)
 trim_train$BuybackProtec <- grepl("Buyback", trim_train$VehHistory)
 
+# Removed everything after "Owner" to create a variable containing number of owners.
 trim_train$VehHistory <- sub("\\ Owner.*", "", trim_train$VehHistory)
+
+trim_train$VehHistory <- as.numeric(trim_train$VehHistory)
 
 # Features
 
@@ -221,8 +249,13 @@ install.packages("quanteda.textstats")
 library(quanteda.textstats)
 unique(trim_train$VehFeats)
 
+# Create a vector of trims
 trims <- c(levels(trim_train$Vehicle_Trim))
-  
+
+# Created a binary variable for each trim listed in remaining string variables.
+
+#*#*FIX!!!!!
+
 library(stringr)
 for(i in trims){
   trim_train[i] <- +str_detect(apply(trim_train, 1, paste0, collapse = " "), trims[which(trims == i)])
