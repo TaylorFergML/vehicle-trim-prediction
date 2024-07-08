@@ -181,13 +181,19 @@ Fuel <- rename(count(trim_train, VehFuel), Freq = n)
 
 unique(trim_train$VehFuel)
 
+trim_train$VehFuel <- as.factor(trim_train$VehFuel)
+
 # Make
 
 unique(trim_train$VehMake)
 
+trim_train$VehMake <- as.factor(trim_train$VehMake)
+
 # Price Label
 
 unique(trim_train$VehPriceLabel)
+
+trim_train$VehPriceLabel <- as.factor(trim_train$VehPriceLabel)
 
 # Year
 
@@ -240,6 +246,20 @@ trim_train$VehHistory <- sub("\\ Owner.*", "", trim_train$VehHistory)
 
 trim_train$VehHistory <- as.numeric(trim_train$VehHistory)
 
+# Numeric Variables
+
+glimpse(trim_train)
+
+hist(trim_train$SellerRating)
+
+hist(trim_train$SellerRevCnt)
+
+hist(trim_train$VehListdays)
+
+hist(trim_train$VehMileage)
+
+hist(trim_train$Dealer_Listing_Price)
+
 # Features and Seller Notes
 
 install.packages("quanteda")
@@ -254,15 +274,14 @@ unique(trim_train$VehFeats)
 trim_train$VehSellerNotes[is.na(trim_train$VehSellerNotes)] <- " "
 trim_train$VehFeats[is.na(trim_train$VehFeats)] <- " "
 
+trim_train$VehFeats <- tolower(trim_train$VehFeats)
+trim_train$VehSellerNotes <- tolower(trim_train$VehSellerNotes)
+
 trim_train$text <- str_c(trim_train$VehFeats, " ", trim_train$VehSellerNotes)
 
 # Create a vector of trims
 
 trims <- c(tolower(levels(trim_train$Vehicle_Trim)))
-
-#
-trim_train$VehFeats <- tolower(trim_train$VehFeats)
-trim_train$VehSellerNotes <- tolower(trim_train$VehSellerNotes)
 
 # Created a binary variable for each trim listed in remaining string variables.
 
@@ -292,13 +311,18 @@ featdfm <- dfm(feattoken,
 
 featdfm <- dfm_remove(featdfm, stopwords("english"))
 
+trim_train %>% 
+  group_by(Vehicle_Trim) %>%
+  summarise(no_rows = length(Vehicle_Trim))/length(trim_train)
+
 featdfm <-
   dfm_trim(
     featdfm,
     min_docfreq = 0.10,
-    max_docfreq = 0.50,
+    max_docfreq = 0.45,
     docfreq_type = "prop"
   ) 
+
 groupfeatdfm <- dfm_group(featdfm, groups = trim_train$Vehicle_Trim)
 head(groupfeatdfm)
 
@@ -306,8 +330,29 @@ groupfeatkey <- textstat_keyness(groupfeatdfm)
 
 print(groupfeatkey)
 
-head(dfm_sort(groupfeatdfm, decreasing = TRUE, margin = "both") ) 
+feat <- dfm_tfidf(groupfeatdfm, scheme_tf = "propmax")
 
-topfeatures(groupfeatdfm, n=200)
+topfeatures(feat, n = 20, groups = docnames(feat))
 
-trim_feat_freq <- textstat_frequency(featdfm, group = trim_train$Vehicle_Trim)
+# No other features stand out. I'll do a test run to see how easily
+# the data classifies currently.
+
+# Seperating test and train set
+set.seed(1)
+
+
+trim_train$id <- 1:nrow(trim_train)
+
+#use 70% of dataset as training set and 30% as test set 
+train <- trim_train %>% dplyr::sample_frac(0.70)
+test  <- dplyr::anti_join(trim_train, train, by = 'id')
+
+# Running a basic decision tree to get a bench mark
+
+install.packages("rpart")
+library(rpart)
+trim_tree <- rpart(Vehicle_Trim ~ ., data = train, method = "class")
+
+install.packages("rpart.plot")
+library(rpart.plot)
+rpart.plot(trim_tree, main = "Decision Tree of Vehicle Trim")
