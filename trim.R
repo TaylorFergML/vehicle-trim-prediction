@@ -337,9 +337,19 @@ topfeatures(feat, n = 20, groups = docnames(feat))
 # No other features stand out. I'll do a test run to see how easily
 # the data classifies currently.
 
-# Seperating test and train set
-set.seed(1)
+trim_train %>% replace_na(list(VehColorInt = "unknown", VehDriveTrain = "unknown",VehPriceLabel = "unknown"))
 
+# Seperating test and train set
+set.seed(123)
+
+trim_train$Vehicle_Trim <- gsub(".*x75th Anniversary.*", "x75th_Anniversary",trim_train$Vehicle_Trim, ignore.case=TRUE)
+trim_train$Vehicle_Trim <- gsub(".*High Altitude.*", "High_Altitude",trim_train$Vehicle_Trim, ignore.case=TRUE)
+trim_train$Vehicle_Trim <- gsub(".*Premium Luxury.*", "Premium_Luxury",trim_train$Vehicle_Trim, ignore.case=TRUE)
+trim_train$Vehicle_Trim <- gsub(".*SRT Night.*", "SRT_Night",trim_train$Vehicle_Trim, ignore.case=TRUE)
+trim_train$Vehicle_Trim <- gsub(".*Sterling Edition.*", "Sterling",trim_train$Vehicle_Trim, ignore.case=TRUE)
+
+
+trim_train <- subset(trim_train, select = -c(VehFeats, VehSellerNotes, text) )
 
 trim_train$id <- 1:nrow(trim_train)
 
@@ -347,12 +357,24 @@ trim_train$id <- 1:nrow(trim_train)
 train <- trim_train %>% dplyr::sample_frac(0.70)
 test  <- dplyr::anti_join(trim_train, train, by = 'id')
 
-# Running a basic decision tree to get a bench mark
+# Running a random forest to get a bench mark
 
-install.packages("rpart")
-library(rpart)
-trim_tree <- rpart(Vehicle_Trim ~ ., data = train, method = "class")
+install.packages("ranger")
+library(ranger)
+library(caret)
 
-install.packages("rpart.plot")
-library(rpart.plot)
-rpart.plot(trim_tree, main = "Decision Tree of Vehicle Trim")
+CTRL <- trainControl(method = "repeatedcv", 
+                     number = 2, 
+                     repeats = 1,
+                     classProbs = TRUE)
+
+ranger_model <- caret::train(Vehicle_Trim ~ .,
+                             train,
+                             method = "ranger",
+                             trControl = CTRL,
+                             na.action = na.omit,
+                             metric="ROC",
+                             tuneGrid = expand.grid(mtry=c(1,5), splitrule="gini", min.node.size = 10))
+
+ranger_model
+
