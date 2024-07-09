@@ -374,7 +374,7 @@ ranger_model <- caret::train(Vehicle_Trim ~ .,
                              trControl = CTRL,
                              na.action = na.omit,
                              metric="ROC",
-                             tuneGrid = expand.grid(mtry=c(1,5), splitrule="gini", min.node.size = 10))
+                             tuneGrid = expand.grid(mtry=c(1,12), splitrule="gini", min.node.size = 10))
 
 ranger_model
 
